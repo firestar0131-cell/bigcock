@@ -506,55 +506,104 @@ function Today() {
               </p>
             </div>
 
-            <form onSubmit={handleBodyUpload} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-[11px] font-mono text-muted mb-1">記錄日期</label>
-                  <input
-                    type="date"
-                    value={bodyDate}
-                    onChange={(e) => setBodyDate(e.target.value)}
-                    className="w-full rounded-xl bg-ink/5 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-halo"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-mono text-muted mb-1">體重 (kg)</label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    placeholder="例如 68.5"
-                    value={bodyWeight}
-                    onChange={(e) => setBodyWeight(e.target.value)}
-                    className="w-full rounded-xl bg-ink/5 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-halo"
-                  />
-                </div>
-              </div>
+           {/* 隱藏的原生相機與相簿觸發器 */}
+          <input
+            ref={bodyCameraRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleBodyFileSelected}
+            className="hidden"
+          />
+          <input
+            ref={bodyGalleryRef}
+            type="file"
+            accept="image/*"
+            onChange={handleBodyFileSelected}
+            className="hidden"
+          />
 
+          {/* 照片即時預覽 / 拍照選擇區 */}
+          <div className="space-y-2">
+            {bodyPreviewUrl ? (
+              <div className="relative w-full h-56 rounded-2xl overflow-hidden ring-1 ring-ink/10 bg-black/5">
+                <img src={bodyPreviewUrl} alt="體態預覽" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBodyFile(null);
+                    setBodyPreviewUrl(null);
+                  }}
+                  className="absolute top-2 right-2 bg-black/60 text-white rounded-full px-2.5 py-1 text-[10px] backdrop-blur-md"
+                >
+                  重選
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => bodyCameraRef.current?.click()}
+                  className="flex flex-col items-center justify-center p-5 rounded-2xl border border-dashed border-ink/20 hover:bg-ink/5 transition gap-2"
+                >
+                  <svg className="w-6 h-6 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                    <circle cx="12" cy="13" r="3" strokeWidth="1.8" />
+                  </svg>
+                  <span className="font-disp text-xs font-semibold">開啟相機拍照</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => bodyGalleryRef.current?.click()}
+                  className="flex flex-col items-center justify-center p-5 rounded-2xl border border-dashed border-ink/20 hover:bg-ink/5 transition gap-2"
+                >
+                  <svg className="w-6 h-6 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  <span className="font-disp text-xs font-semibold">從相簿選取</span>
+                </button>
+              </div>
+            )}
+          </div>
+
+          <form onSubmit={handleBodyUpload} className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
               <div>
-                <label className="block text-[11px] font-mono text-muted mb-1">體態照片</label>
+                <label className="block text-[11px] font-mono text-muted mb-1">記錄日期</label>
                 <input
-                  ref={bodyFileRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => setBodyFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-muted file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-ink/5 hover:file:bg-ink/10"
+                  type="date"
+                  value={bodyDate}
+                  onChange={(e) => setBodyDate(e.target.value)}
+                  className="w-full rounded-xl bg-ink/5 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-halo"
                   required
                 />
               </div>
+              <div>
+                <label className="block text-[11px] font-mono text-muted mb-1">體重 (kg)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  placeholder="例如 68.5"
+                  value={bodyWeight}
+                  onChange={(e) => setBodyWeight(e.target.value)}
+                  className="w-full rounded-xl bg-ink/5 px-3 py-2 text-xs outline-none focus:ring-1 focus:ring-halo"
+                />
+              </div>
+            </div>
 
-              {bodyMessage && (
-                <p className="text-[11px] text-halo2 font-medium">{bodyMessage}</p>
-              )}
+            {bodyMessage && (
+              <p className="text-[11px] text-halo2 font-medium">{bodyMessage}</p>
+            )}
 
-              <button
-                type="submit"
-                disabled={bodyUploading}
-                className="w-full rounded-xl bg-ink py-2.5 font-disp text-xs font-bold tracking-tight text-paper transition active:scale-[0.99] disabled:opacity-50"
-              >
-                {bodyUploading ? "正在上傳私人相簿..." : "儲存今日體態"}
-              </button>
-            </form>
+            <button
+              type="submit"
+              disabled={bodyUploading || !bodyFile}
+              className="w-full rounded-xl bg-ink py-2.5 font-disp text-xs font-bold tracking-tight text-paper transition active:scale-[0.99] disabled:opacity-40"
+            >
+              {bodyUploading ? "正在上傳私人加密相簿..." : "儲存今日體態"}
+            </button>
+          </form>
           </section>
 
           {/* 歷史體態照片展示 */}
