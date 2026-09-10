@@ -143,3 +143,32 @@ export function mealLabel(ts: number) {
   if (h < 20) return "晚餐";
   return "宵夜";
 }
+
+export function loadProfile(): Profile {
+  if (!isBrowser()) return DEFAULT_PROFILE;
+  try {
+    const raw = localStorage.getItem(KEY_PROFILE);
+    if (!raw) return DEFAULT_PROFILE;
+    return { ...DEFAULT_PROFILE, ...(JSON.parse(raw) as Partial<Profile>) };
+  } catch {
+    return DEFAULT_PROFILE;
+  }
+}
+
+export function saveProfile(p: Profile) {
+  if (isBrowser()) localStorage.setItem(KEY_PROFILE, JSON.stringify(p));
+}
+
+export function loadTargets(): Targets | null {
+  if (!isBrowser()) return null;
+  try {
+    const raw = localStorage.getItem(KEY_TARGETS);
+    return raw ? (JSON.parse(raw) as Targets) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveTargets(t: Targets) {
+  if (isBrowser()) localStorage.setItem(KEY_TARGETS, JSON.stringify(t));
+}
