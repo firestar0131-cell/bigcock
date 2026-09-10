@@ -38,9 +38,9 @@ const schema = {
 
 export async function analyzeMeal(opts: {
   apiKey: string;
-  text?: string;
-  imageBase64?: string;
-  mimeType?: string;
+  text?: string | undefined;
+  imageBase64?: string | undefined;
+  mimeType?: string | undefined;
 }): Promise<Analysis> {
   const parts: Array<Record<string, unknown>> = [];
   if (opts.imageBase64) {

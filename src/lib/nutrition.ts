@@ -20,7 +20,7 @@ export type Analysis = {
 export type MealEntry = Analysis & {
   id: string;
   createdAt: number;
-  image?: string;
+  image?: string | undefined;
 };
 
 const KEY_MEALS = "burnlog.meals";
