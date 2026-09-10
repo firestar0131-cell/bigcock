@@ -1,12 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-// 讀取環境變數或直接配置
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY || '';
-
-if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-  console.warn('Supabase URL 或 Key 尚未設定，請檢查環境變數配置。');
-}
+// 直接設定專屬 Supabase 伺服器資訊，確保 SSR 與前端皆能穩定連線
+const SUPABASE_URL = 'https://lbufgwwtnugnesdszzrd.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_BgCeHpgKd-udkCTPl9v7Iw_0w8Gtimw';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
