@@ -61,21 +61,36 @@ function Today() {
   const [openId, setOpenId] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
+// 取得真正的本地當天日期 (YYYY-MM-DD)，避開 UTC 造成的時差偷跑昨天
+  const getTodayString = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+    const day = String(now.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // 取得或建立裝置專屬的合法 UUID（徹底解決 invalid input syntax for type uuid）
+  const getLocalUserId = () => {
+    if (typeof window === "undefined") return "00000000-0000-0000-0000-000000000000";
+    let id = localStorage.getItem("burnlog_user_uuid");
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem("burnlog_user_uuid", id);
+    }
+    return id;
+  };
+
   // 體態追蹤相關狀態
   const [bodyLogs, setBodyLogs] = useState<BodyLog[]>([]);
   const [bodyWeight, setBodyWeight] = useState("");
-  const [bodyDate, setBodyDate] = useState(new Date().toISOString().split("T")[0]);
+  const [bodyDate, setBodyDate] = useState(getTodayString());
   const [bodyFile, setBodyFile] = useState<File | null>(null);
+  const [bodyPreviewUrl, setBodyPreviewUrl] = useState<string | null>(null);
   const [bodyUploading, setBodyUploading] = useState(false);
   const [bodyMessage, setBodyMessage] = useState("");
-  const bodyFileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setMeals(loadMeals());
-    setGoal(loadGoal());
-    setTargets(loadTargets());
-    fetchBodyLogs();
-  }, []);
+  const bodyCameraRef = useRef<HTMLInputElement>(null);
+  const bodyGalleryRef = useRef<HTMLInputElement>(null);
 
   // 讀取私人體態相片（生成具時效保護的 Signed URL，絕不外流）
   async function fetchBodyLogs() {
