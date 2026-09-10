@@ -12,6 +12,7 @@ function today() {
 const tabs = [
   { to: "/", label: "今日" },
   { to: "/history", label: "歷史" },
+  { to: "/profile", label: "個人" },
   { to: "/settings", label: "設定" },
 ] as const;
 

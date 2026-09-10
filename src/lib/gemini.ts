@@ -116,3 +116,64 @@ export function fileToBase64(file: File): Promise<{ base64: string; dataUrl: str
     reader.readAsDataURL(file);
   });
 }
+
+const targetSchema = {
+  type: "object",
+  properties: {
+    kcal: { type: "number" },
+    protein: { type: "number" },
+    fat: { type: "number" },
+    carbs: { type: "number" },
+    advice: { type: "string" },
+  },
+  required: ["kcal", "protein", "fat", "carbs", "advice"],
+};
+
+export async function analyzeProfileTargets(opts: {
+  apiKey: string;
+  summary: string;
+}): Promise<{ kcal: number; protein: number; fat: number; carbs: number; advice: string }> {
+  const res = await fetch(`${ENDPOINT}?key=${encodeURIComponent(opts.apiKey)}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [
+          {
+            text: `你是一位專業的營養師與體能教練。依使用者的身高、體重、年齡、性別、運動量與目標，
+計算每日建議攝取熱量(kcal)與蛋白質(g)、脂肪(g)、碳水化合物(g)。
+再給一段 60 字以內的繁體中文建議。所有文字使用繁體中文，只輸出 JSON。`,
+          },
+        ],
+      },
+      contents: [{ role: "user", parts: [{ text: opts.summary }] }],
+      generationConfig: { responseMimeType: "application/json", responseSchema: targetSchema },
+    }),
+  });
+
+  if (!res.ok) {
+    let msg = `分析失敗（${res.status}）`;
+    try {
+      const err = (await res.json()) as { error?: { message?: string } };
+      if (err?.error?.message) msg += `：${err.error.message}`;
+    } catch {
+      /* ignore */
+    }
+    if (res.status === 400 || res.status === 403) msg += "（請確認 API Key 是否正確）";
+    throw new Error(msg);
+  }
+
+  const data = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const raw = data.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
+  if (!raw) throw new Error("AI 沒有回傳結果，請再試一次。");
+  const p = JSON.parse(raw) as Record<string, unknown>;
+  return {
+    kcal: Math.round(Number(p["kcal"]) || 0),
+    protein: Math.round(Number(p["protein"]) || 0),
+    fat: Math.round(Number(p["fat"]) || 0),
+    carbs: Math.round(Number(p["carbs"]) || 0),
+    advice: String(p["advice"] ?? ""),
+  };
+}
