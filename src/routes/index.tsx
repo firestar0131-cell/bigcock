@@ -122,11 +122,21 @@ function Today() {
     }
   }
 
+// 體態照片選取與相機處理
+  function handleBodyFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) {
+      setBodyFile(file);
+      setBodyPreviewUrl(URL.createObjectURL(file));
+      setBodyMessage("");
+    }
+  }
+
   // 體態上傳邏輯（純私密儲存，完全跳過 AI）
   async function handleBodyUpload(e: React.FormEvent) {
     e.preventDefault();
     if (!bodyFile) {
-      setBodyMessage("請先選擇一張體態照片！");
+      setBodyMessage("請先拍照或選取體態照片！");
       return;
     }
     setBodyUploading(true);
@@ -134,7 +144,8 @@ function Today() {
 
     try {
       const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id || "anonymous-user";
+      // 使用合法的本機 UUID，徹底解決 anonymous-user 格式錯誤
+      const userId = userData.user?.id || getLocalUserId();
       const fileExt = bodyFile.name.split(".").pop();
       const filePath = `${userId}/${Date.now()}.${fileExt}`;
 
@@ -157,11 +168,18 @@ function Today() {
 
       if (insertErr) throw insertErr;
 
-      setBodyMessage("體態記錄儲存成功！");
+      setBodyMessage("體態照片已成功私密存檔！");
       setBodyFile(null);
+      setBodyPreviewUrl(null);
       setBodyWeight("");
-      if (bodyFileRef.current) bodyFileRef.current.value = "";
+      setBodyDate(getTodayString()); // 上傳後維持當天日期
       fetchBodyLogs();
+    } catch (err: any) {
+      setBodyMessage(err.message || "上傳失敗，請確認 Supabase 設定。");
+    } finally {
+      setBodyUploading(false);
+    }
+  }
     } catch (err: any) {
       setBodyMessage(err.message || "上傳失敗，請確認 Supabase 設定。");
     } finally {
