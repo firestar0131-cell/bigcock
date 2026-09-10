@@ -1,6 +1,6 @@
 import type { Analysis } from "./nutrition";
 
-const MODEL = "gemini-2.5-flash";
+const MODEL = "gemini-3.6-flash";
 const ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
 
 const SYSTEM_PROMPT = `你是一位專業的營養師。請分析使用者提供的餐點（文字描述或照片），
