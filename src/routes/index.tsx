@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MacroPie } from "@/components/MacroPie";
@@ -9,11 +9,13 @@ import {
   loadApiKey,
   loadGoal,
   loadMeals,
+  loadTargets,
   mealLabel,
   saveMeals,
   sumMacros,
   type Analysis,
   type MealEntry,
+  type Targets,
 } from "@/lib/nutrition";
 
 export const Route = createFileRoute("/")({
@@ -37,6 +39,7 @@ export const Route = createFileRoute("/")({
 function Today() {
   const [meals, setMeals] = useState<MealEntry[]>([]);
   const [goal, setGoal] = useState(2000);
+  const [targets, setTargets] = useState<Targets | null>(null);
   const [text, setText] = useState("");
   const [image, setImage] = useState<{ base64: string; dataUrl: string; mime: string } | null>(
     null,
@@ -50,6 +53,7 @@ function Today() {
   useEffect(() => {
     setMeals(loadMeals());
     setGoal(loadGoal());
+    setTargets(loadTargets());
   }, []);
 
   const todayMeals = meals.filter((m) => isToday(m.createdAt));
@@ -144,9 +148,9 @@ function Today() {
         </div>
         <div className="mt-4 grid grid-cols-3 divide-x divide-ink/10">
           {[
-            { k: "蛋白質", v: totals.protein },
-            { k: "脂肪", v: totals.fat },
-            { k: "碳水", v: totals.carbs },
+            { k: "蛋白質", v: totals.protein, t: targets?.protein },
+            { k: "脂肪", v: totals.fat, t: targets?.fat },
+            { k: "碳水", v: totals.carbs, t: targets?.carbs },
           ].map((m, i) => (
             <div key={m.k} className={i === 0 ? "pr-2" : i === 1 ? "px-2" : "pl-2"}>
               <div className="font-mono text-[10px] uppercase tracking-widest text-muted">
@@ -156,12 +160,37 @@ function Today() {
                 <span className="font-disp text-2xl font-extrabold tabular-nums">
                   {Math.round(m.v)}
                 </span>{" "}
-                <span className="font-mono text-[10px] text-muted">g</span>
+                <span className="font-mono text-[10px] text-muted">
+                  {m.t ? `/ ${m.t} g` : "g"}
+                </span>
               </div>
+              {m.t ? (
+                <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-ink/10">
+                  <div
+                    className="h-full rounded-full bg-ink/60 transition-all"
+                    style={{ width: `${Math.min(100, Math.round((m.v / m.t) * 100))}%` }}
+                  />
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
+        {targets?.advice ? (
+          <p className="mt-3 rounded-xl bg-ink/5 px-3 py-2 text-[11px] leading-relaxed text-muted">
+            {targets.advice}
+          </p>
+        ) : null}
       </section>
+
+      {!targets ? (
+        <Link
+          to="/profile"
+          className="mt-3 flex animate-rise items-center justify-between rounded-2xl bg-card px-4 py-3 ring-1 ring-white/50 backdrop-blur-xl"
+        >
+          <span className="text-[12px]">填寫個人資料，讓 AI 算出你的每日目標</span>
+          <span className="font-disp text-sm font-bold">→</span>
+        </Link>
+      ) : null}
 
       <div className="mt-3 flex items-center justify-between px-1">
         <h1 className="font-disp text-sm font-bold tracking-tight">已記錄餐點</h1>
