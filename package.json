@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/fitness.test.mjs",
+    "test": "node --test tests/fitness.test.mjs tests/fitness-v1.1.test.mjs",
     "format": "prettier --write ."
   },
   "overrides": {

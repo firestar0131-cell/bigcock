@@ -34,7 +34,10 @@ export function WorkoutPanel({
             d.draft
               ? {
                   ...d,
-                  sessions: [...d.sessions, { ...d.draft, finishedAt: Date.now() }],
+                  sessions: [
+                    ...d.sessions,
+                    { ...d.draft, finishedAt: Date.now(), restTimer: null },
+                  ],
                   restDays: d.restDays.filter((day) => day !== d.draft!.date),
                   draft: null,
                 }
@@ -70,12 +73,14 @@ export function WorkoutPanel({
         <BackButton onClick={() => setTemplateId(null)} />
         <TemplateEditor
           template={template}
+          library={data.exerciseLibrary}
           onCancel={() => setTemplateId(null)}
-          onSave={(next) => {
+          onSave={(next, library) => {
             if (
               update((d) => ({
                 ...d,
                 templates: d.templates.map((t) => (t.id === next.id ? next : t)),
+                exerciseLibrary: library,
               }))
             )
               setTemplateId(null);

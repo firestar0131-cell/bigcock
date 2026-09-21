@@ -7,10 +7,14 @@ import {
   validDate,
   validSet,
   volume,
+  reachedRepTarget,
+  setCompleted,
+  startRest,
   type ExerciseSession,
   type WorkoutSession,
 } from "@/lib/fitness/model";
 import { card, input, primary, secondary, Confirm, Empty } from "./shared";
+import { RestTimer } from "./RestTimer";
 
 export function SessionEditor({
   session,
@@ -39,6 +43,12 @@ export function SessionEditor({
   }
   return (
     <div className="space-y-4">
+      {!historical && session.restTimer && (
+        <RestTimer
+          timer={session.restTimer}
+          onChange={(restTimer) => onChange({ ...session, restTimer })}
+        />
+      )}
       <section className={`${card} space-y-3`}>
         <div>
           <p className="text-xs text-muted">
@@ -67,13 +77,35 @@ export function SessionEditor({
           徒手動作可填 0 kg；訓練量只計已完成組的外加重量 × 次數。
         </p>
       </section>
+      <label className="block text-sm">
+        快速跳到動作
+        <select
+          className={`${input} mt-1`}
+          value=""
+          onChange={(e) =>
+            document
+              .getElementById(`exercise-${e.target.value}`)
+              ?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+        >
+          <option value="" disabled>
+            選擇動作
+          </option>
+          {session.exercises.map((e) => (
+            <option key={e.exerciseId} value={e.exerciseId}>
+              {e.name}
+            </option>
+          ))}
+        </select>
+      </label>
       {session.exercises.map((exercise, index) => {
         const last = previousExercise(history, session, exercise.exerciseId);
         const allDone =
           exercise.sets.length > 0 && exercise.sets.every((s) => s.completed && validSet(s));
         return (
           <section
-            className={`${card} space-y-3`}
+            className={`${card} scroll-mt-36 space-y-3`}
+            id={`exercise-${exercise.exerciseId}`}
             key={exercise.exerciseId}
             aria-label={exercise.name}
           >
@@ -85,6 +117,7 @@ export function SessionEditor({
               <p className="text-xs text-muted">
                 目標 {exercise.plannedSets} 組 × {exercise.minReps}–{exercise.maxReps} 次
               </p>
+              <p className="mt-1 text-xs text-muted">預設休息 {exercise.restSeconds} 秒</p>
             </div>
             {last ? (
               <div className="rounded-xl bg-halo/15 p-3">
@@ -95,6 +128,11 @@ export function SessionEditor({
                     .map((s) => `${s.weight} kg × ${s.reps}`)
                     .join(" ／ ")}
                 </p>
+                {!historical && reachedRepTarget(last.exercise, exercise) && (
+                  <p className="mt-2 text-sm font-semibold">
+                    已達本次目標次數上限，可考慮下次增加重量。重量由你自行決定。
+                  </p>
+                )}
                 <button
                   className={`${secondary} mt-2`}
                   onClick={() => changeExercise(index, copyPrevious(exercise, last.exercise))}
@@ -175,12 +213,8 @@ export function SessionEditor({
                         setError("請先填入這組有效的重量與整數次數，再勾選完成。");
                         return;
                       }
-                      changeExercise(index, {
-                        ...exercise,
-                        sets: exercise.sets.map((s) =>
-                          s.id === set.id ? { ...s, completed: !s.completed } : s,
-                        ),
-                      });
+                      onChange(setCompleted(session, exercise.exerciseId, set.id, !set.completed));
+                      setError("");
                     }}
                   >
                     {set.completed ? "✓" : "○"}
@@ -225,10 +259,16 @@ export function SessionEditor({
                     setError(`請先填好 ${exercise.name} 每組的重量與次數。`);
                     return;
                   }
-                  changeExercise(index, {
-                    ...exercise,
-                    sets: exercise.sets.map((s) => ({ ...s, completed: true })),
+                  onChange({
+                    ...session,
+                    exercises: session.exercises.map((e, i) =>
+                      i === index
+                        ? { ...e, sets: e.sets.map((s) => ({ ...s, completed: true })) }
+                        : e,
+                    ),
+                    restTimer: historical ? session.restTimer : startRest(exercise),
                   });
+                  setError("");
                 }}
               >
                 完成此動作

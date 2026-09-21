@@ -6,6 +6,8 @@ import { WorkoutPanel } from "@/components/fitness/WorkoutPanel";
 import { ProgressPanel } from "@/components/fitness/ProgressPanel";
 import { card, input, primary, secondary, Stat } from "@/components/fitness/shared";
 import { useFitness } from "@/hooks/use-fitness";
+import { useProgressPhotos } from "@/hooks/use-progress-photos";
+import { LatestPhoto, ProgressPhotos } from "@/components/fitness/ProgressPhotos";
 import { GAIN_RATE, localDate, weeklySummary, type FitnessData } from "@/lib/fitness/model";
 
 export const Route = createFileRoute("/fitness")({
@@ -28,6 +30,7 @@ type Tab = (typeof tabs)[number]["id"];
 function FitnessPage() {
   const { data, ready, error, update } = useFitness();
   const [tab, setTab] = useState<Tab>("overview");
+  const photos = useProgressPhotos();
   return (
     <AppShell wide>
       <div className="mt-6 flex items-end justify-between gap-3">
@@ -97,10 +100,25 @@ function FitnessPage() {
             </button>
           )}
           <div role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
-            {tab === "overview" && <Overview data={data} update={update} go={setTab} />}
+            {tab === "overview" && (
+              <>
+                <div className="mb-4">
+                  <LatestPhoto state={photos} onOpen={() => setTab("progress")} />
+                </div>
+                <Overview data={data} update={update} go={setTab} />
+              </>
+            )}
             {tab === "weight" && <WeightPanel data={data} update={update} />}
             {tab === "workout" && <WorkoutPanel data={data} update={update} />}
-            {tab === "progress" && <ProgressPanel data={data} />}
+            {tab === "progress" && (
+              <div className="space-y-5">
+                <button className={`${secondary} w-full`} onClick={() => setTab("weight")}>
+                  ＋ 快速記錄體重（不需照片）
+                </button>
+                <ProgressPhotos state={photos} weights={data.weights} />
+                <ProgressPanel data={data} />
+              </div>
+            )}
           </div>
           <p className="mt-6 text-xs leading-relaxed text-muted">
             紀錄保存在此瀏覽器，與目前飲食紀錄採相同方式；不會自動同步至其他裝置。
@@ -181,6 +199,23 @@ function Overview({
         </button>
       </div>
       <WeightChart entries={data.weights} />
+      <section className={`${card} space-y-2`}>
+        <h2 className="font-bold">訓練摘要</h2>
+        <p className="text-sm">
+          最近 7 天完成{" "}
+          {
+            data.sessions.filter((s) => s.date >= summary.currentStart && s.date <= summary.today)
+              .length
+          }{" "}
+          次訓練
+        </p>
+        <p className="text-sm text-muted">
+          {[...data.sessions].sort(
+            (a, b) => b.date.localeCompare(a.date) || b.startedAt - a.startedAt,
+          )[0]?.name ?? "尚無完成訓練"}
+          {data.draft ? ` · ${data.draft.name} 進行中` : ""}
+        </p>
+      </section>
       <form
         className={`${card} space-y-3`}
         onSubmit={(e) => {

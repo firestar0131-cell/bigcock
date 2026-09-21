@@ -1,10 +1,25 @@
 export type WeightEntry = { id: string; date: string; weight: number; note: string };
+export type LibraryExercise = {
+  id: string;
+  name: string;
+  minReps: number;
+  maxReps: number;
+  restSeconds: number;
+  notes: string;
+};
+export type RestTimer = {
+  exerciseId: string;
+  exerciseName: string;
+  durationSeconds: number;
+  endsAt: number | null;
+};
 export type ExerciseTemplate = {
   id: string;
   name: string;
   sets: number;
   minReps: number;
   maxReps: number;
+  restSeconds: number;
 };
 export type WorkoutTemplate = { id: string; name: string; exercises: ExerciseTemplate[] };
 export type SetRecord = {
@@ -19,6 +34,7 @@ export type ExerciseSession = {
   minReps: number;
   maxReps: number;
   plannedSets: number;
+  restSeconds: number;
   sets: SetRecord[];
 };
 export type WorkoutSession = {
@@ -29,6 +45,7 @@ export type WorkoutSession = {
   startedAt: number;
   finishedAt: number | null;
   exercises: ExerciseSession[];
+  restTimer: RestTimer | null;
 };
 export type FitnessGoal = {
   height: number;
@@ -37,7 +54,8 @@ export type FitnessGoal = {
   goal: "muscle-gain";
 };
 export type FitnessData = {
-  version: 1;
+  version: 2;
+  exerciseLibrary: LibraryExercise[];
   goal: FitnessGoal;
   weights: WeightEntry[];
   templates: WorkoutTemplate[];
@@ -60,7 +78,17 @@ const exercise = (
   sets: number,
   minReps: number,
   maxReps: number,
-): ExerciseTemplate => ({ id, name, sets, minReps, maxReps });
+): ExerciseTemplate => ({ id, name, sets, minReps, maxReps, restSeconds: defaultRest(id) });
+export function defaultRest(id: string): number {
+  return (
+    (
+      { squat: 180, "romanian-deadlift": 120, "bench-press": 150, "cable-fly": 90 } as Record<
+        string,
+        number
+      >
+    )[id] ?? 90
+  );
+}
 export const DEFAULT_TEMPLATES: WorkoutTemplate[] = [
   {
     id: "legs",
@@ -102,7 +130,10 @@ export const DEFAULT_TEMPLATES: WorkoutTemplate[] = [
 
 export function emptyFitness(): FitnessData {
   return {
-    version: 1,
+    version: 2,
+    exerciseLibrary: DEFAULT_TEMPLATES.flatMap((t) =>
+      t.exercises.map(({ sets: _sets, ...e }) => ({ ...e, notes: "" })),
+    ),
     goal: { ...DEFAULT_GOAL },
     weights: [],
     templates: structuredClone(DEFAULT_TEMPLATES),
@@ -186,12 +217,14 @@ export function startWorkout(template: WorkoutTemplate): WorkoutSession {
     date: localDate(),
     startedAt: Date.now(),
     finishedAt: null,
+    restTimer: null,
     exercises: template.exercises.map((e) => ({
       exerciseId: e.id,
       name: e.name,
       minReps: e.minReps,
       maxReps: e.maxReps,
       plannedSets: e.sets,
+      restSeconds: e.restSeconds,
       sets: Array.from({ length: e.sets }, blankSet),
     })),
   };
@@ -258,4 +291,71 @@ export function copyPrevious(
         : set;
     }),
   };
+}
+
+export function normalizeExerciseName(name: string): string {
+  return name
+    .normalize("NFKC")
+    .toLocaleLowerCase("en")
+    .replace(/[\s\p{P}\p{S}]+/gu, "");
+}
+export function findLibraryExercise<T extends Pick<LibraryExercise, "id" | "name">>(
+  library: T[],
+  name: string,
+) {
+  const key = normalizeExerciseName(name);
+  return library.find((e) =>
+    [e.name, ...e.name.split("/")].some((n) => normalizeExerciseName(n) === key),
+  );
+}
+export function remainingRest(timer: RestTimer | null, now = Date.now()): number {
+  return timer?.endsAt == null ? 0 : Math.max(0, Math.ceil((timer.endsAt - now) / 1000));
+}
+export function startRest(exercise: ExerciseSession, now = Date.now()): RestTimer | null {
+  return exercise.restSeconds > 0
+    ? {
+        exerciseId: exercise.exerciseId,
+        exerciseName: exercise.name,
+        durationSeconds: exercise.restSeconds,
+        endsAt: now + exercise.restSeconds * 1000,
+      }
+    : null;
+}
+export function setCompleted(
+  session: WorkoutSession,
+  exerciseId: string,
+  setId: string,
+  completed: boolean,
+  now = Date.now(),
+): WorkoutSession {
+  const exercise = session.exercises.find((e) => e.exerciseId === exerciseId);
+  const set = exercise?.sets.find((s) => s.id === setId);
+  if (!exercise || !set || (completed && !validSet(set))) return session;
+  return {
+    ...session,
+    exercises: session.exercises.map((e) =>
+      e.exerciseId === exerciseId
+        ? { ...e, sets: e.sets.map((s) => (s.id === setId ? { ...s, completed } : s)) }
+        : e,
+    ),
+    restTimer:
+      completed && !set.completed && session.finishedAt === null
+        ? startRest(exercise, now)
+        : session.restTimer,
+  };
+}
+// Conservative hint: enough sets, all completed at the current upper rep target, same positive load.
+// This avoids recommending a heavier load after an incomplete or mixed-load workout.
+export function reachedRepTarget(
+  previous: ExerciseSession | null,
+  target: ExerciseSession,
+): boolean {
+  if (!previous || previous.sets.length < target.plannedSets) return false;
+  const sets = previous.sets;
+  const load = sets[0]?.weight;
+  return (
+    load != null &&
+    load > 0 &&
+    sets.every((s) => s.completed && validSet(s) && s.weight === load && s.reps! >= target.maxReps)
+  );
 }
