@@ -12,18 +12,21 @@ function today() {
 const tabs = [
   { to: "/", label: "今日" },
   { to: "/history", label: "歷史" },
+  { to: "/fitness", label: "健身" },
   { to: "/profile", label: "個人" },
   { to: "/settings", label: "設定" },
 ] as const;
 
-export function AppShell({ children }: { children: ReactNode }) {
+export function AppShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
   return (
     <div className="relative min-h-screen overflow-hidden bg-paper text-ink">
       <div className="pointer-events-none absolute -left-16 -top-24 size-64 rounded-full bg-halo/30 blur-3xl animate-drift" />
       <div className="pointer-events-none absolute -right-20 top-64 size-72 rounded-full bg-halo2/25 blur-3xl" />
       <div className="pointer-events-none absolute -left-24 bottom-40 size-60 rounded-full bg-halo3/20 blur-3xl" />
 
-      <div className="relative mx-auto flex min-h-screen w-full max-w-[430px] flex-col px-5 pb-28 pt-3.5">
+      <div
+        className={`relative mx-auto flex min-h-screen w-full ${wide ? "max-w-[760px]" : "max-w-[430px]"} flex-col px-5 pb-28 pt-3.5`}
+      >
         <header className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="grid size-6 place-items-center rounded-lg bg-ink font-disp text-sm font-black text-paper">
@@ -43,7 +46,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             key={t.to}
             to={t.to}
             activeOptions={{ exact: t.to === "/" }}
-            className="rounded-full bg-ink/5 px-3 py-1 text-xs text-muted transition"
+            className="flex min-h-11 flex-1 items-center justify-center rounded-full bg-ink/5 px-2 py-1 text-xs text-muted transition"
             activeProps={{ className: "!bg-ink !text-paper font-medium" }}
           >
             {t.label}
