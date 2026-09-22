@@ -86,6 +86,7 @@ const legacySchema = z.object({
 export const fitnessSchema = legacySchema.extend({
   version: z.literal(2),
   exerciseLibrary: z.array(libraryExercise),
+  coachSessions: z.array(date).default([]),
 });
 
 export function migrateFitness(raw: unknown): FitnessData {
@@ -135,6 +136,7 @@ export function migrateFitness(raw: unknown): FitnessData {
     sessions,
     draft,
     exerciseLibrary: [...library.values()],
+    coachSessions: [],
   });
 }
 
@@ -154,3 +156,4 @@ export function saveFitness(
     storage.setItem(FITNESS_V1_BACKUP_KEY, previous);
   storage.setItem(FITNESS_STORAGE_KEY, JSON.stringify(data));
 }
+

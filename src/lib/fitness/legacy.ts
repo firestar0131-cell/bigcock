@@ -37,6 +37,7 @@ export function mergeLegacy(cloud: FitnessData, local: FitnessData): FitnessData
     restDays: [...new Set([...cloud.restDays, ...local.restDays])].filter(
       (date) => ![...cloud.sessions, ...local.sessions].some((s) => s.date === date),
     ),
+    coachSessions: cloud.coachSessions ?? [],
     goal: JSON.stringify(cloud.goal) === JSON.stringify(defaults.goal) ? local.goal : cloud.goal,
   };
 }

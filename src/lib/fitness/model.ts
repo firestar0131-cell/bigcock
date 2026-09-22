@@ -62,6 +62,7 @@ export type FitnessData = {
   sessions: WorkoutSession[];
   draft: WorkoutSession | null;
   restDays: string[];
+  coachSessions: string[];
 };
 
 export const GAIN_RATE = { desiredMin: 0.15, desiredMax: 0.25, below: 0.1, above: 0.3 } as const;
@@ -140,6 +141,7 @@ export function emptyFitness(): FitnessData {
     sessions: [],
     draft: null,
     restDays: [],
+    coachSessions: [],
   };
 }
 export function localDate(date = new Date()): string {
@@ -359,3 +361,4 @@ export function reachedRepTarget(
     sets.every((s) => s.completed && validSet(s) && s.weight === load && s.reps! >= target.maxReps)
   );
 }
+
