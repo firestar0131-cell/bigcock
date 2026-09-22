@@ -10,8 +10,9 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/fitness.test.mjs tests/fitness-v1.1.test.mjs",
-    "format": "prettier --write ."
+    "test": "node --test tests/fitness.test.mjs tests/fitness-v1.1.test.mjs tests/fitness-persistence.test.mjs",
+    "format": "prettier --write .",
+    "test:fitness-cloud": "node tests/fitness-cloud.integration.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -91,3 +92,4 @@
     "vite": "8.1.5"
   }
 }
+

@@ -1,3 +1,8 @@
+import { LegacyImport } from "@/components/fitness/LegacyImport";
+import type { FitnessUpdate } from "@/lib/fitness/sync";
+import type { User } from "@supabase/supabase-js";
+import { supabase } from "@/integrations/supabase/client";
+import { FitnessAccount } from "@/components/fitness/FitnessAccount";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { AppShell } from "@/components/AppShell";
@@ -28,9 +33,12 @@ const tabs = [
 type Tab = (typeof tabs)[number]["id"];
 
 function FitnessPage() {
-  const { data, ready, error, update } = useFitness();
+  return <FitnessAccount>{(user) => <FitnessContent key={user.id} user={user} />}</FitnessAccount>;
+}
+function FitnessContent({ user }: { user: User }) {
+  const { data, ready, error, update, pending, reload } = useFitness(user.id);
   const [tab, setTab] = useState<Tab>("overview");
-  const photos = useProgressPhotos();
+  const photos = useProgressPhotos(user.id);
   return (
     <AppShell wide>
       <div className="mt-6 flex items-end justify-between gap-3">
@@ -83,6 +91,33 @@ function FitnessPage() {
           </button>
         ))}
       </div>
+      <div className="mb-4 space-y-2 rounded-xl bg-ink/5 p-3 text-sm">
+        <p className="break-all">{user.email}</p>
+        <p role="status">
+          {pending ? `正在儲存至雲端（${pending}）…` : ready ? "已儲存至雲端" : "雲端資料尚未就緒"}
+        </p>
+        <button className={secondary} disabled={pending > 0} onClick={reload}>
+          重新載入雲端資料
+        </button>
+        <button
+          className={`${secondary} ml-2`}
+          disabled={pending > 0 || photos.busy}
+          onClick={async () => {
+            const result = await supabase.auth.signOut();
+            if (result.error) window.alert("登出失敗，請重試。");
+          }}
+        >
+          登出
+        </button>
+      </div>
+      {ready && (
+        <LegacyImport
+          userId={user.id}
+          update={update}
+          reloadPhotos={photos.reload}
+          disabled={pending > 0 || photos.busy}
+        />
+      )}
       {error && (
         <p role="alert" className="mb-4 rounded-xl bg-red-500/10 p-3 text-sm text-destructive">
           {error}
@@ -121,7 +156,8 @@ function FitnessPage() {
             )}
           </div>
           <p className="mt-6 text-xs leading-relaxed text-muted">
-            紀錄保存在此瀏覽器，與目前飲食紀錄採相同方式；不會自動同步至其他裝置。
+            紀錄保存在 Supabase
+            帳號中。請等待「已儲存至雲端」後再離開；其他裝置登入同一帳號即可取得資料。
           </p>
         </>
       )}
@@ -135,7 +171,7 @@ function Overview({
   go,
 }: {
   data: FitnessData;
-  update: (change: (data: FitnessData) => FitnessData) => boolean;
+  update: FitnessUpdate;
   go: (tab: Tab) => void;
 }) {
   const summary = weeklySummary(data.weights);
@@ -218,14 +254,14 @@ function Overview({
       </section>
       <form
         className={`${card} space-y-3`}
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
           const value = Number(target);
           if (
             Number.isFinite(value) &&
             value > 0 &&
             value <= 500 &&
-            update((d) => ({ ...d, goal: { ...d.goal, targetWeight: value } }))
+            (await update((d) => ({ ...d, goal: { ...d.goal, targetWeight: value } })))
           )
             setSaved(true);
         }}
@@ -260,3 +296,4 @@ function Overview({
     </div>
   );
 }
+

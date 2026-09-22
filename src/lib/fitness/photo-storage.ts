@@ -60,87 +60,108 @@ export const localPhotoRepository: PhotoRepository = {
 };
 
 const BUCKET = "fitness-progress-photos";
-async function cloudUser() {
+async function cloudUser(expectedUser: string) {
   const { supabase } = await import("@/integrations/supabase/client");
   const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user)
+  if (error || !data.user || data.user.id !== expectedUser)
     throw new Error("私人雲端照片需要登入 Supabase 帳號，請先完成登入設定。");
   return { supabase, userId: data.user.id };
 }
 function checkOwner(photo: ProgressPhoto, userId: string) {
   if (photo.imageRef !== `${userId}/${photo.id}.jpg`) throw new Error("照片不屬於目前登入的帳號。");
 }
-export const cloudPhotoRepository: PhotoRepository = {
-  async list() {
-    const { supabase, userId } = await cloudUser();
-    const { data, error } = await supabase
-      .from("fitness_progress_photos")
-      .select("id,date,image_ref,category,note,created_at")
-      .eq("user_id", userId)
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false });
-    if (error) throw new Error("無法讀取私人照片，請確認 Supabase migration 與權限已設定。");
-    return data.map((row) => {
-      const photo = photoSchema.parse({
-        id: row.id,
-        date: row.date,
-        imageRef: row.image_ref,
-        category: row.category,
-        note: row.note,
-        createdAt: new Date(row.created_at).getTime(),
+export function cloudPhotoRepository(expectedUser: string): PhotoRepository {
+  return {
+    async list() {
+      const { supabase, userId } = await cloudUser(expectedUser);
+      const { data, error } = await supabase
+        .from("fitness_progress_photos")
+        .select("id,date,image_ref,category,note,created_at")
+        .eq("user_id", userId)
+        .order("date", { ascending: false })
+        .order("created_at", { ascending: false });
+      if (error) throw new Error("無法讀取私人照片，請確認 Supabase migration 與權限已設定。");
+      return data.map((row) => {
+        const photo = photoSchema.parse({
+          id: row.id,
+          date: row.date,
+          imageRef: row.image_ref,
+          category: row.category,
+          note: row.note,
+          createdAt: new Date(row.created_at).getTime(),
+        });
+        checkOwner(photo, userId);
+        return photo;
       });
+    },
+    async image(photo) {
+      const { supabase, userId } = await cloudUser(expectedUser);
       checkOwner(photo, userId);
-      return photo;
-    });
-  },
-  async image(photo) {
-    const { supabase, userId } = await cloudUser();
-    checkOwner(photo, userId);
-    const { data, error } = await supabase.storage.from(BUCKET).download(photo.imageRef);
-    if (error) throw new Error("照片載入失敗，請確認登入狀態後重試。");
-    return data;
-  },
-  async add(input: PhotoInput, blob: Blob) {
-    const { supabase, userId } = await cloudUser();
-    const base = newPhoto(input);
-    const photo = { ...base, imageRef: `${userId}/${base.id}.jpg` };
-    const { error: uploadError } = await supabase.storage
-      .from(BUCKET)
-      .upload(photo.imageRef, blob, { contentType: "image/jpeg", upsert: false });
-    if (uploadError)
-      throw new Error("私人照片上傳失敗，請確認登入、私人 bucket 與 storage policy。");
-    const { error } = await supabase.from("fitness_progress_photos").insert({
-      id: photo.id,
-      user_id: userId,
-      date: photo.date,
-      image_ref: photo.imageRef,
-      category: photo.category,
-      note: photo.note,
-      created_at: new Date(photo.createdAt).toISOString(),
-    });
-    if (error) {
-      const cleanup = await supabase.storage.from(BUCKET).remove([photo.imageRef]);
-      throw new Error(
-        cleanup.error
-          ? "照片資料未完成保存；私人儲存中有待清理檔案，請稍後聯絡管理者。"
-          : "照片資料未保存，上傳已撤回，請確認資料表權限。",
-      );
-    }
-    return photo;
-  },
-  async remove(photo) {
-    const { supabase, userId } = await cloudUser();
-    checkOwner(photo, userId);
-    const { error: storageError } = await supabase.storage.from(BUCKET).remove([photo.imageRef]);
-    if (storageError) throw new Error("照片刪除失敗，請稍後重試。");
-    const { error } = await supabase
-      .from("fitness_progress_photos")
-      .delete()
-      .eq("id", photo.id)
-      .eq("user_id", userId);
-    if (error) throw new Error("影像已移除，但紀錄尚待清理，請再按一次刪除。");
-  },
-};
-// Opt in only after private bucket, RLS and authentication have been configured.
-export const useCloudPhotos = import.meta.env["VITE_FITNESS_PHOTO_STORAGE"] === "supabase";
-export const photoRepository = useCloudPhotos ? cloudPhotoRepository : localPhotoRepository;
+      const { data, error } = await supabase.storage.from(BUCKET).download(photo.imageRef);
+      if (error) throw new Error("照片載入失敗，請確認登入狀態後重試。");
+      return data;
+    },
+    async add(input: PhotoInput, blob: Blob) {
+      const { supabase, userId } = await cloudUser(expectedUser);
+      const base = newPhoto(input);
+      const photo = { ...base, imageRef: `${userId}/${base.id}.jpg` };
+      return storeCloudPhoto(expectedUser, photo, blob);
+    },
+    async remove(photo) {
+      const { supabase, userId } = await cloudUser(expectedUser);
+      checkOwner(photo, userId);
+      const { error: storageError } = await supabase.storage.from(BUCKET).remove([photo.imageRef]);
+      if (storageError) throw new Error("照片刪除失敗，請稍後重試。");
+      const { error } = await supabase
+        .from("fitness_progress_photos")
+        .delete()
+        .eq("id", photo.id)
+        .eq("user_id", userId);
+      if (error) throw new Error("影像已移除，但紀錄尚待清理，請再按一次刪除。");
+    },
+  };
+}
+
+async function storeCloudPhoto(
+  expectedUser: string,
+  photo: ProgressPhoto,
+  blob: Blob,
+): Promise<ProgressPhoto> {
+  const { supabase, userId } = await cloudUser(expectedUser);
+  checkOwner(photo, userId);
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(photo.imageRef, blob, { contentType: "image/jpeg", upsert: false });
+  if (uploadError) throw new Error("私人照片上傳失敗，請確認登入、私人 bucket 與 storage policy。");
+  const { error } = await supabase.from("fitness_progress_photos").insert({
+    id: photo.id,
+    user_id: userId,
+    date: photo.date,
+    image_ref: photo.imageRef,
+    category: photo.category,
+    note: photo.note,
+    created_at: new Date(photo.createdAt).toISOString(),
+  });
+  if (error) {
+    const cleanup = await supabase.storage.from(BUCKET).remove([photo.imageRef]);
+    throw new Error(
+      cleanup.error
+        ? "照片資料未完成保存；私人儲存中有待清理檔案，請稍後聯絡管理者。"
+        : "照片資料未保存，上傳已撤回，請確認資料表權限。",
+    );
+  }
+  return photo;
+}
+export async function uploadLegacyPhoto(userId: string, legacy: ProgressPhoto, blob: Blob) {
+  const { supabase } = await cloudUser(userId);
+  const { data, error } = await supabase
+    .from("fitness_progress_photos")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("id", legacy.id)
+    .maybeSingle();
+  if (error) throw new Error("無法檢查舊照片是否已匯入。");
+  if (data) return;
+  await storeCloudPhoto(userId, { ...legacy, imageRef: `${userId}/${legacy.id}.jpg` }, blob);
+}
+

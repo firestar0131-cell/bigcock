@@ -1,3 +1,4 @@
+import type { FitnessUpdate } from "@/lib/fitness/sync";
 import { useState } from "react";
 import {
   localDate,
@@ -11,13 +12,7 @@ import { SessionEditor } from "./SessionEditor";
 import { TemplateEditor } from "./TemplateEditor";
 import { BackButton, card, input, primary, secondary, Confirm, Empty } from "./shared";
 
-export function WorkoutPanel({
-  data,
-  update,
-}: {
-  data: FitnessData;
-  update: (change: (data: FitnessData) => FitnessData) => boolean;
-}) {
+export function WorkoutPanel({ data, update }: { data: FitnessData; update: FitnessUpdate }) {
   const [templateId, setTemplateId] = useState<string | null>(null);
   const [editing, setEditing] = useState<WorkoutSession | null>(null);
   const [restDate, setRestDate] = useState(localDate);
@@ -29,7 +24,7 @@ export function WorkoutPanel({
         session={data.draft}
         history={data.sessions}
         onChange={(draft) => update((d) => ({ ...d, draft }))}
-        onFinish={() => {
+        onFinish={async () => {
           update((d) =>
             d.draft
               ? {
@@ -54,9 +49,9 @@ export function WorkoutPanel({
         history={data.sessions}
         historical
         onChange={setEditing}
-        onFinish={() => {
+        onFinish={async () => {
           if (
-            update((d) => ({
+            await update((d) => ({
               ...d,
               sessions: d.sessions.map((s) => (s.id === editing.id ? editing : s)),
               restDays: d.restDays.filter((day) => day !== editing.date),
@@ -75,9 +70,9 @@ export function WorkoutPanel({
           template={template}
           library={data.exerciseLibrary}
           onCancel={() => setTemplateId(null)}
-          onSave={(next, library) => {
+          onSave={async (next, library) => {
             if (
-              update((d) => ({
+              await update((d) => ({
                 ...d,
                 templates: d.templates.map((t) => (t.id === next.id ? next : t)),
                 exerciseLibrary: library,
@@ -145,7 +140,7 @@ export function WorkoutPanel({
         </label>
         <button
           className={secondary}
-          onClick={() => {
+          onClick={async () => {
             if (!validDate(restDate) || restDate > localDate()) {
               setMessage("請選擇有效的休息日期。");
               return;
@@ -154,7 +149,7 @@ export function WorkoutPanel({
               setMessage("當天已有訓練紀錄，無法同時標記為休息日。");
               return;
             }
-            if (update((d) => ({ ...d, restDays: [...new Set([...d.restDays, restDate])] })))
+            if (await update((d) => ({ ...d, restDays: [...new Set([...d.restDays, restDate])] })))
               setMessage("已標記休息日。");
           }}
         >
@@ -238,8 +233,8 @@ export function WorkoutPanel({
                 <Confirm
                   title="取消休息日標記？"
                   description={`取消 ${item.date} 的 Rest 標記，不會新增或刪除任何訓練。`}
-                  onConfirm={() =>
-                    update((d) => ({
+                  onConfirm={async () =>
+                    await update((d) => ({
                       ...d,
                       restDays: d.restDays.filter((day) => day !== item.date),
                     }))
@@ -254,3 +249,4 @@ export function WorkoutPanel({
     </div>
   );
 }
+
