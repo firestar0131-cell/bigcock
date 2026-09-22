@@ -155,6 +155,23 @@ export function WorkoutPanel({ data, update }: { data: FitnessData; update: Fitn
         >
           標記 Rest Day
         </button>
+        <button
+          className={secondary}
+          onClick={async () => {
+            if (!validDate(restDate) || restDate > localDate()) {
+              setMessage("請選擇有效的教練課日期。");
+              return;
+            }
+            if (data.sessions.some((s) => s.date === restDate)) {
+              setMessage("當天已有訓練紀錄，無法同時標記教練課。");
+              return;
+            }
+            if (await update((d) => ({ ...d, coachSessions: [...new Set([...d.coachSessions, restDate])] })))
+              setMessage("已標記教練課。");
+          }}
+        >
+          教練課
+        </button>
         {message && (
           <p role="status" className="text-sm">
             {message}
@@ -163,12 +180,13 @@ export function WorkoutPanel({ data, update }: { data: FitnessData; update: Fitn
       </section>
       <section className="space-y-3">
         <h2 className="font-disp text-xl font-bold">訓練歷史</h2>
-        {!data.sessions.length && !data.restDays.length && (
+        {!data.sessions.length && !data.restDays.length && !data.coachSessions.length && (
           <Empty>尚無訓練紀錄。完成第一堂訓練後，就能在這裡回顧。</Empty>
         )}
         {[
-          ...data.sessions.map((session) => ({ date: session.date, id: session.id, session })),
-          ...data.restDays.map((date) => ({ date, id: `rest-${date}`, session: null })),
+          ...data.sessions.map((session) => ({ date: session.date, id: session.id, session, kind: "session" as const })),
+          ...data.restDays.map((date) => ({ date, id: `rest-${date}`, session: null, kind: "rest" as const })),
+          ...data.coachSessions.map((date) => ({ date, id: `coach-${date}`, session: null, kind: "coach" as const })),
         ]
           .sort(
             (a, b) =>
@@ -228,15 +246,16 @@ export function WorkoutPanel({ data, update }: { data: FitnessData; update: Fitn
               <article key={item.id} className={`${card} flex items-center justify-between gap-2`}>
                 <p>
                   <span className="text-xs text-muted">{item.date}</span>
-                  <span className="ml-3 font-bold">Rest</span>
+                  <span className="ml-3 font-bold">{item.kind === "coach" ? "教練課" : "Rest"}</span>
                 </p>
                 <Confirm
-                  title="取消休息日標記？"
-                  description={`取消 ${item.date} 的 Rest 標記，不會新增或刪除任何訓練。`}
+                  title="取消標記？"
+                  description={`取消 ${item.date} 的活動標記。`}
                   onConfirm={async () =>
                     await update((d) => ({
                       ...d,
-                      restDays: d.restDays.filter((day) => day !== item.date),
+                      restDays: item.kind === "rest" ? d.restDays.filter((day) => day !== item.date) : d.restDays,
+                      coachSessions: item.kind === "coach" ? d.coachSessions.filter((day) => day !== item.date) : d.coachSessions,
                     }))
                   }
                 >

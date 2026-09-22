@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { SiteGate } from "./SiteGate";
 
 const WEEK = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
@@ -18,8 +19,7 @@ const tabs = [
 ] as const;
 
 export function AppShell({ children, wide = false }: { children: ReactNode; wide?: boolean }) {
-  return (
-    <div className="relative min-h-screen overflow-hidden bg-paper text-ink">
+  return <SiteGate><div className="relative min-h-screen overflow-hidden bg-paper text-ink">
       <div className="pointer-events-none absolute -left-16 -top-24 size-64 rounded-full bg-halo/30 blur-3xl animate-drift" />
       <div className="pointer-events-none absolute -right-20 top-64 size-72 rounded-full bg-halo2/25 blur-3xl" />
       <div className="pointer-events-none absolute -left-24 bottom-40 size-60 rounded-full bg-halo3/20 blur-3xl" />
@@ -53,6 +53,6 @@ export function AppShell({ children, wide = false }: { children: ReactNode; wide
           </Link>
         ))}
       </nav>
-    </div>
-  );
+  </div></SiteGate>;
 }
+
