@@ -8,8 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { localDate, type WeightEntry } from "@/lib/fitness/model";
-import { photoTimeline, type ProgressPhoto } from "@/lib/fitness/photos";
-import { photoRepository } from "@/lib/fitness/photo-storage";
+import { photoTimeline, type ProgressPhoto, type PhotoRepository } from "@/lib/fitness/photos";
 import type { ProgressPhotosState } from "@/hooks/use-progress-photos";
 import { card, input, primary, secondary, Confirm, Empty } from "./shared";
 
@@ -20,7 +19,15 @@ const categories = {
   back: "Back 背面",
   other: "Other 其他",
 };
-export function PhotoImage({ photo, large = false }: { photo: ProgressPhoto; large?: boolean }) {
+export function PhotoImage({
+  photo,
+  repository: photoRepository,
+  large = false,
+}: {
+  photo: ProgressPhoto;
+  repository: PhotoRepository;
+  large?: boolean;
+}) {
   const [url, setUrl] = useState("");
   const [failed, setFailed] = useState(false);
   useEffect(() => {
@@ -42,7 +49,7 @@ export function PhotoImage({ photo, large = false }: { photo: ProgressPhoto; lar
       active = false;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [photo]);
+  }, [photo, photoRepository]);
   return url ? (
     <img
       src={url}
@@ -71,7 +78,7 @@ export function LatestPhoto({ state, onOpen }: { state: ProgressPhotosState; onO
   return (
     <button className={`${card} flex w-full items-center gap-4 text-left`} onClick={onOpen}>
       <span className="w-20 shrink-0">
-        <PhotoImage photo={latest} />
+        <PhotoImage photo={latest} repository={state.repository} />
       </span>
       <span>
         <span className="block text-sm font-bold">最新體態照片</span>
@@ -221,7 +228,7 @@ export function ProgressPhotos({
                         className="w-full rounded-xl text-left focus-visible:ring-2 focus-visible:ring-halo"
                         aria-label={`查看 ${photo.date} ${categories[photo.category]}照片`}
                       >
-                        <PhotoImage photo={photo} />
+                        <PhotoImage photo={photo} repository={state.repository} />
                         <span className="mt-1 block text-xs">{categories[photo.category]}</span>
                       </button>
                     </DialogTrigger>
@@ -232,7 +239,7 @@ export function ProgressPhotos({
                         </DialogTitle>
                         <DialogDescription>{photo.note || "體態照片完整預覽"}</DialogDescription>
                       </DialogHeader>
-                      <PhotoImage photo={photo} large />
+                      <PhotoImage photo={photo} repository={state.repository} large />
                     </DialogContent>
                   </Dialog>
                   {photo.note && <p className="break-words text-xs text-muted">{photo.note}</p>}
@@ -288,7 +295,7 @@ export function ProgressPhotos({
                   <figcaption className="mb-2 text-xs">
                     {photo.date} · {categories[photo.category]}
                   </figcaption>
-                  <PhotoImage photo={photo} />
+                  <PhotoImage photo={photo} repository={state.repository} />
                 </figure>
               ))}
             </div>
@@ -299,3 +306,4 @@ export function ProgressPhotos({
     </section>
   );
 }
+

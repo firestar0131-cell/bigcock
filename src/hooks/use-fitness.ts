@@ -1,50 +1,60 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { emptyFitness, type FitnessData } from "@/lib/fitness/model";
-import { FITNESS_STORAGE_KEY, loadFitness, saveFitness } from "@/lib/fitness/storage";
-
-export function useFitness() {
-  const [data, setData] = useState<FitnessData>(emptyFitness);
-  const current = useRef(data);
-  const [ready, setReady] = useState(false);
-  const [error, setError] = useState("");
+import { emptyFitness } from "@/lib/fitness/model";
+import { fitnessRepository } from "@/lib/fitness/cloud";
+import { FitnessSync, type FitnessUpdate, type SyncState } from "@/lib/fitness/sync";
+export function useFitness(userId: string) {
+  const [state, setState] = useState<SyncState>(() => ({
+    data: emptyFitness(),
+    ready: false,
+    pending: 0,
+    error: "",
+  }));
+  const [attempt, setAttempt] = useState(0);
+  const sync = useRef<FitnessSync | null>(null);
+  const pending = useRef(0);
   useEffect(() => {
-    function read() {
-      try {
-        const loaded = loadFitness(localStorage);
-        current.current = loaded;
-        setData(loaded);
-        setReady(true);
-        setError("");
-      } catch {
-        setReady(false);
-        setError(
-          "無法讀取健身資料，已保留原始紀錄。請確認瀏覽器允許儲存，或先備份 localStorage 後再處理資料格式。",
-        );
+    let active = true;
+    const repository = fitnessRepository(userId);
+    setState((s) => ({ ...s, ready: false, error: "" }));
+    void repository
+      .load()
+      .then((initial) => {
+        if (!active) return;
+        sync.current = new FitnessSync(repository, initial, (next) => {
+          pending.current = next.pending;
+          if (active) setState(next);
+        });
+        setState({ data: initial.data, pending: 0, error: "", ready: true });
+      })
+      .catch((error: unknown) => {
+        if (active)
+          setState((s) => ({
+            ...s,
+            ready: false,
+            error: error instanceof Error ? error.message : "雲端讀取失敗。",
+          }));
+      });
+    const beforeUnload = (event: BeforeUnloadEvent) => {
+      if (pending.current) {
+        event.preventDefault();
+        event.returnValue = "";
       }
-    }
-    read();
-    const sync = (event: StorageEvent) => {
-      if (event.key === FITNESS_STORAGE_KEY || event.key === null) read();
     };
-    window.addEventListener("storage", sync);
-    return () => window.removeEventListener("storage", sync);
-  }, []);
-  const update = useCallback(
-    (change: (previous: FitnessData) => FitnessData): boolean => {
-      if (!ready) return false;
-      try {
-        const next = change(current.current);
-        saveFitness(localStorage, next);
-        current.current = next;
-        setData(next);
-        setError("");
-        return true;
-      } catch {
-        setError("儲存失敗，這次變更尚未保存。請檢查輸入、瀏覽器儲存空間與權限，再試一次。");
-        return false;
-      }
-    },
-    [ready],
+    window.addEventListener("beforeunload", beforeUnload);
+    return () => {
+      active = false;
+      sync.current?.stop();
+      sync.current = null;
+      window.removeEventListener("beforeunload", beforeUnload);
+    };
+  }, [userId, attempt]);
+  const update: FitnessUpdate = useCallback(
+    (change) => sync.current?.update(change) ?? Promise.resolve(false),
+    [],
   );
-  return { data, ready, error, update };
+  const reload = useCallback(() => {
+    if (!pending.current) setAttempt((n) => n + 1);
+  }, []);
+  return { ...state, update, reload };
 }
+

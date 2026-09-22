@@ -1,3 +1,4 @@
+import type { FitnessUpdate } from "@/lib/fitness/sync";
 import { useState } from "react";
 import { subMonths } from "date-fns";
 import {
@@ -19,7 +20,7 @@ import {
 } from "@/lib/fitness/model";
 import { card, input, primary, secondary, Confirm, Empty } from "./shared";
 
-type Props = { data: FitnessData; update: (change: (data: FitnessData) => FitnessData) => boolean };
+type Props = { data: FitnessData; update: FitnessUpdate };
 export function WeightChart({ entries }: { entries: WeightEntry[] }) {
   const [range, setRange] = useState("4w");
   const today = localDate();
@@ -169,14 +170,17 @@ export function WeightPanel({ data, update }: Props) {
   const [weight, setWeight] = useState("");
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
+  const [saving, setSaving] = useState(false);
   function reset() {
     setEditing(null);
     setDate(localDate());
     setWeight("");
     setNote("");
   }
-  function save(event: React.FormEvent) {
+  async function save(event: React.FormEvent) {
     event.preventDefault();
+    if (saving) return;
+    setMessage("");
     const value = Number(weight);
     if (
       !validDate(date) ||
@@ -199,12 +203,17 @@ export function WeightPanel({ data, update }: Props) {
       weight: value,
       note: note.trim(),
     };
+    setSaving(true);
     if (
-      update((d) => ({ ...d, weights: [...d.weights.filter((e) => e.id !== entry.id), entry] }))
+      await update((d) => ({
+        ...d,
+        weights: [...d.weights.filter((e) => e.id !== entry.id), entry],
+      }))
     ) {
       reset();
-      setMessage("體重已儲存。");
-    }
+      setMessage("體重已儲存至雲端。");
+    } else setMessage("體重尚未儲存，請查看上方錯誤後重試。");
+    setSaving(false);
   }
   return (
     <div className="space-y-4">
@@ -248,7 +257,7 @@ export function WeightPanel({ data, update }: Props) {
           />
         </label>
         <div className="flex gap-2">
-          <button className={`${primary} flex-1`} type="submit">
+          <button className={`${primary} flex-1`} type="submit" disabled={saving}>
             儲存體重
           </button>
           {editing && (
@@ -295,12 +304,12 @@ export function WeightPanel({ data, update }: Props) {
                     title="刪除體重紀錄？"
                     description={`${e.date} 的 ${e.weight} kg 將被刪除，週平均會重新計算。`}
                     destructive
-                    onConfirm={() => {
+                    onConfirm={async () => {
                       if (
-                        update((d) => ({
+                        (await update((d) => ({
                           ...d,
                           weights: d.weights.filter((w) => w.id !== e.id),
-                        })) &&
+                        }))) &&
                         editing === e.id
                       )
                         reset();
@@ -322,3 +331,4 @@ export function WeightPanel({ data, update }: Props) {
     </div>
   );
 }
+
