@@ -96,11 +96,12 @@ export function TemplateEditor({
         if (
           names.some((e) => {
             const existing = findLibraryExercise(draftLibrary, e.name);
+            const own = draftLibrary.find((item) => item.id === e.id);
             const duplicate = findLibraryExercise(
               draft.exercises.filter((other) => other.id !== e.id),
               e.name,
             );
-            return duplicate || (existing && existing.id !== e.id);
+            return duplicate || (existing && existing.id !== e.id && own?.name !== e.name);
           })
         ) {
           setError("這個名稱已存在於共用動作庫，請從動作庫加入，避免建立重複動作。");
@@ -137,6 +138,35 @@ export function TemplateEditor({
       </section>
       {draft.exercises.map((exercise, index) => (
         <section key={exercise.id} className={`${card} space-y-3`}>
+          <label className="block text-sm">
+            改用共用動作（沿用該動作的重量紀錄）
+            <select
+              className={`${input} mt-1`}
+              value={exercise.id}
+              onChange={(event) => {
+                const shared = draftLibrary.find((item) => item.id === event.target.value);
+                if (!shared) return;
+                if (draft.exercises.some((item, i) => i !== index && item.id === shared.id)) {
+                  setError("這個模板已有該共用動作。");
+                  return;
+                }
+                setDraft({
+                  ...draft,
+                  exercises: draft.exercises.map((item, i) =>
+                    i === index ? { ...item, id: shared.id, name: shared.name } : item,
+                  ),
+                });
+                setError("");
+              }}
+            >
+              {draftLibrary.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                  {item.id === exercise.id ? "（目前）" : ""}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className="block text-sm">
             動作 {index + 1}
             <input

@@ -3,6 +3,7 @@ import {
   defaultRest,
   emptyFitness,
   ensureUpperTemplate,
+  ensureSharedExercises,
   validDate,
   type FitnessData,
   type LibraryExercise,
@@ -90,7 +91,7 @@ export const fitnessSchema = legacySchema
     exerciseLibrary: z.array(libraryExercise),
     coachSessions: z.array(date).default([]),
   })
-  .transform(ensureUpperTemplate);
+  .transform((data) => ensureSharedExercises(ensureUpperTemplate(data)));
 
 export function migrateFitness(raw: unknown): FitnessData {
   if (typeof raw === "object" && raw !== null && "version" in raw && raw.version === 2)

@@ -4,6 +4,27 @@ import { FitnessSync } from '../src/lib/fitness/sync.ts';
 import { emptyFitness, startWorkout } from '../src/lib/fitness/model.ts';
 import { mergeLegacy } from '../src/lib/fitness/legacy.ts';
 import { fitnessSchema, loadFitness, saveFitness, FITNESS_STORAGE_KEY } from '../src/lib/fitness/storage.ts';
+import { previousExercise } from '../src/lib/fitness/model.ts';
+
+test('existing template-only movements become shared without changing past weights', () => {
+ const old=emptyFitness();
+ const custom={id:'old-push-chest',name:'My Chest Press',sets:3,minReps:8,maxReps:12,restSeconds:90};
+ old.templates[1].exercises.push(custom);
+ const session=startWorkout(old.templates[1]);
+ session.finishedAt=session.startedAt+1000;
+ session.exercises.at(-1).sets[0]={...session.exercises.at(-1).sets[0],weight:42,reps:10,completed:true};
+ old.sessions.push(session);
+ const original=structuredClone(old);
+ const restored=fitnessSchema.parse(old);
+ assert.deepEqual(old,original);
+ assert.deepEqual(restored.templates,old.templates);
+ assert.deepEqual(restored.sessions,old.sessions);
+ assert.equal(restored.exerciseLibrary.find(e=>e.id===custom.id).name,custom.name);
+ assert.equal(fitnessSchema.parse(restored).exerciseLibrary.filter(e=>e.id===custom.id).length,1);
+ const upper={...restored.templates.at(-1),exercises:[...restored.templates.at(-1).exercises,custom]};
+ const current=startWorkout(upper);
+ assert.equal(previousExercise(restored.sessions,current,custom.id).exercise.sets[0].weight,42);
+});
 
 test('Upper hydration preserves all existing data and never writes on read', async () => {
  const old=emptyFitness();old.templates.pop();old.exerciseLibrary=old.exerciseLibrary.filter(e=>!['chest-supported-row','lateral-raise'].includes(e.id));

@@ -118,6 +118,23 @@ export function ensureUpperTemplate(data: FitnessData): FitnessData {
   };
 }
 
+// Older template edits may have introduced exercises without a library entry.
+// Keep their IDs so finished sessions continue to point to the same movement.
+export function ensureSharedExercises(data: FitnessData): FitnessData {
+  const known = new Set(data.exerciseLibrary.map((e) => e.id));
+  const missing: LibraryExercise[] = [];
+  for (const template of data.templates) {
+    for (const { sets: _sets, ...exercise } of template.exercises) {
+      if (known.has(exercise.id)) continue;
+      known.add(exercise.id);
+      missing.push({ ...exercise, notes: "" });
+    }
+  }
+  return missing.length
+    ? { ...data, exerciseLibrary: [...data.exerciseLibrary, ...missing] }
+    : data;
+}
+
 export const DEFAULT_TEMPLATES: WorkoutTemplate[] = [
   {
     id: "legs",
