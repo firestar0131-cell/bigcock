@@ -2,6 +2,7 @@ import { z } from "zod";
 import {
   defaultRest,
   emptyFitness,
+  ensureUpperTemplate,
   validDate,
   type FitnessData,
   type LibraryExercise,
@@ -83,11 +84,13 @@ const legacySchema = z.object({
   draft: sessionSchema.nullable(),
   restDays: z.array(date),
 });
-export const fitnessSchema = legacySchema.extend({
-  version: z.literal(2),
-  exerciseLibrary: z.array(libraryExercise),
-  coachSessions: z.array(date).default([]),
-});
+export const fitnessSchema = legacySchema
+  .extend({
+    version: z.literal(2),
+    exerciseLibrary: z.array(libraryExercise),
+    coachSessions: z.array(date).default([]),
+  })
+  .transform(ensureUpperTemplate);
 
 export function migrateFitness(raw: unknown): FitnessData {
   if (typeof raw === "object" && raw !== null && "version" in raw && raw.version === 2)
@@ -156,4 +159,3 @@ export function saveFitness(
     storage.setItem(FITNESS_V1_BACKUP_KEY, previous);
   storage.setItem(FITNESS_STORAGE_KEY, JSON.stringify(data));
 }
-

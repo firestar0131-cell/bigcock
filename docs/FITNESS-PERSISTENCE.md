@@ -10,3 +10,11 @@ Fitness no longer uses localStorage or IndexedDB as its active store. The old `b
 
 The live test script is `tests/fitness-cloud.integration.mjs`; it exercises fresh-session restore, account isolation, revision conflicts, private storage access, and photo-only/weight-only independence. Set `FITNESS_TEST_PASSWORD` locally to run it with the synthetic QA accounts. The regular suite is `npm test`.
 
+## Upper template compatibility
+
+The fourth template uses the stable ID `upper`. New accounts receive it from `emptyFitness`; existing version-2 cloud snapshots and local imports receive it after schema validation, only when that ID is absent. The original three defaults stay unchanged. Existing templates, library entries, sessions, drafts, weights and calendar data are retained. Shared exercise IDs preserve prior-performance lookup without replacing existing library names or targets. An already saved Upper (including renamed or edited exercises) is never reseeded.
+
+Hydration is read-only: it does not update Supabase or localStorage. The next normal user save includes Upper through the existing ordered queue and revision-checked `save_fitness` RPC. No SQL migration, bulk account update, storage-key change, or reset is needed. Keep the version at 2, and deploy through the existing main-branch Vercel integration. Rolling back the code does not require deleting Upper from saved payloads: the previous schema and UI already accept arbitrary templates.
+
+Regression coverage includes preservation of customized existing templates and library entries, complete history and active drafts, read-without-write, repeat-load idempotence, and edited Upper save/reload/start through the existing sync flow. Run `npm test`, `npm run typecheck`, and `npm run build` before publishing. Real-account data must not be used as a test fixture.
+

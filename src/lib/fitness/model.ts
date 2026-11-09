@@ -90,6 +90,34 @@ export function defaultRest(id: string): number {
     )[id] ?? 90
   );
 }
+export const UPPER_TEMPLATE: WorkoutTemplate = {
+  id: "upper",
+  name: "Upper（胸背綜合日）",
+  exercises: [
+    exercise("bench-press", "平板臥推", 3, 6, 10),
+    exercise("lat-pulldown", "滑輪下拉", 3, 8, 12),
+    exercise("incline-dumbbell-press", "上斜啞鈴臥推", 3, 8, 12),
+    exercise("chest-supported-row", "胸靠式划船", 3, 8, 12),
+    exercise("lateral-raise", "側平舉", 2, 12, 20),
+  ],
+};
+
+// Add only the new slot and missing library entries. Existing IDs always win.
+export function ensureUpperTemplate(data: FitnessData): FitnessData {
+  if (data.templates.some((t) => t.id === UPPER_TEMPLATE.id)) return data;
+  const upper = structuredClone(UPPER_TEMPLATE);
+  return {
+    ...data,
+    templates: [...data.templates, upper],
+    exerciseLibrary: [
+      ...data.exerciseLibrary,
+      ...upper.exercises
+        .filter((e) => !data.exerciseLibrary.some((existing) => existing.id === e.id))
+        .map(({ sets: _sets, ...e }) => ({ ...e, notes: "" })),
+    ],
+  };
+}
+
 export const DEFAULT_TEMPLATES: WorkoutTemplate[] = [
   {
     id: "legs",
@@ -130,7 +158,7 @@ export const DEFAULT_TEMPLATES: WorkoutTemplate[] = [
 ];
 
 export function emptyFitness(): FitnessData {
-  return {
+  return ensureUpperTemplate({
     version: 2,
     exerciseLibrary: DEFAULT_TEMPLATES.flatMap((t) =>
       t.exercises.map(({ sets: _sets, ...e }) => ({ ...e, notes: "" })),
@@ -142,7 +170,7 @@ export function emptyFitness(): FitnessData {
     draft: null,
     restDays: [],
     coachSessions: [],
-  };
+  });
 }
 export function localDate(date = new Date()): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -361,4 +389,3 @@ export function reachedRepTarget(
     sets.every((s) => s.completed && validSet(s) && s.weight === load && s.reps! >= target.maxReps)
   );
 }
-

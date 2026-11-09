@@ -3,6 +3,30 @@ import assert from 'node:assert/strict';
 import { FitnessSync } from '../src/lib/fitness/sync.ts';
 import { emptyFitness, startWorkout } from '../src/lib/fitness/model.ts';
 import { mergeLegacy } from '../src/lib/fitness/legacy.ts';
+import { fitnessSchema, loadFitness, saveFitness, FITNESS_STORAGE_KEY } from '../src/lib/fitness/storage.ts';
+
+test('Upper hydration preserves all existing data and never writes on read', async () => {
+ const old=emptyFitness();old.templates.pop();old.exerciseLibrary=old.exerciseLibrary.filter(e=>!['chest-supported-row','lateral-raise'].includes(e.id));
+ old.templates[1].name='My Push';old.templates[1].exercises[0].sets=7;
+ old.exerciseLibrary[0].notes='Keep my notes';old.sessions=[{...startWorkout(old.templates[1]),finishedAt:Date.now()}];old.draft=startWorkout(old.templates[0]);old.weights=[weight()];old.restDays=['2026-09-20'];old.coachSessions=['2026-09-19'];
+ const original=JSON.stringify(old);let stored=original,writes=0;
+ const storage={getItem:()=>stored,setItem:(key,value)=>{assert.equal(key,FITNESS_STORAGE_KEY);stored=value;writes++}};
+ const data=loadFitness(storage);assert.equal(writes,0);assert.equal(stored,original);
+ assert.deepEqual(data.templates.slice(0,3),old.templates);
+ assert.deepEqual(data.exerciseLibrary.slice(0,old.exerciseLibrary.length),old.exerciseLibrary);
+ for(const key of ['sessions','draft','weights','goal','restDays','coachSessions']) assert.deepEqual(data[key],old[key]);
+ assert.equal(new Set(data.exerciseLibrary.map(e=>e.id)).size,data.exerciseLibrary.length);
+ const upper=data.templates.at(-1);assert.equal(upper.id,'upper');
+ assert.deepEqual(upper.exercises.map(e=>[e.sets,e.minReps,e.maxReps]),[[3,6,10],[3,8,12],[3,8,12],[3,8,12],[2,12,20]]);
+ assert.deepEqual(fitnessSchema.parse(data),data);assert.equal(JSON.stringify(old),original);
+ let database={data,revision:12};const repo={save:async(next,revision)=>{assert.equal(revision,database.revision);database={data:fitnessSchema.parse(next),revision:revision+1};return structuredClone(database)}};
+ const sync=new FitnessSync(repo,database,()=>{});
+ assert.equal(await sync.update(d=>({...d,templates:d.templates.map(t=>t.id==='upper'?{...t,name:'My Upper',exercises:t.exercises.slice(0,2)}:t)})),true);
+ saveFitness(storage,database.data);const restored=loadFitness(storage);
+ assert.equal(restored.templates.at(-1).name,'My Upper');assert.equal(restored.templates.at(-1).exercises.length,2);
+ assert.deepEqual(restored.templates.slice(0,3),old.templates);assert.deepEqual(restored.sessions,old.sessions);
+ assert.equal(startWorkout(restored.templates.at(-1)).exercises.length,2);
+});
 function deferred(){let resolve,reject;const promise=new Promise((yes,no)=>{resolve=yes;reject=no});return {promise,resolve,reject};}
 const initial=()=>({data:emptyFitness(),revision:0});
 const weight=(id='w')=>({id,date:'2026-09-21',weight:56.2,note:'QA'});
