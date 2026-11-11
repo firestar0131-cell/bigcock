@@ -5,6 +5,19 @@ import { emptyFitness, startWorkout } from '../src/lib/fitness/model.ts';
 import { mergeLegacy } from '../src/lib/fitness/legacy.ts';
 import { fitnessSchema, loadFitness, saveFitness, FITNESS_STORAGE_KEY } from '../src/lib/fitness/storage.ts';
 import { previousExercise } from '../src/lib/fitness/model.ts';
+import { siteAccessIsCurrent, SITE_ACCESS_STORAGE_KEY, SITE_LAST_ACTIVITY_KEY, SITE_IDLE_TIMEOUT_MS } from '../src/lib/site-access.ts';
+
+test('site lock expires after five minutes even across reloads', () => {
+ const now=Date.now();
+ const values=new Map([[SITE_ACCESS_STORAGE_KEY,'1'],[SITE_LAST_ACTIVITY_KEY,String(now)]]);
+ const storage={getItem:(key)=>values.get(key)??null};
+ assert.equal(siteAccessIsCurrent(storage,now+SITE_IDLE_TIMEOUT_MS-1),true);
+ assert.equal(siteAccessIsCurrent(storage,now+SITE_IDLE_TIMEOUT_MS),false);
+ values.delete(SITE_LAST_ACTIVITY_KEY);
+ assert.equal(siteAccessIsCurrent(storage,now),false);
+ values.set(SITE_LAST_ACTIVITY_KEY,String(now));values.delete(SITE_ACCESS_STORAGE_KEY);
+ assert.equal(siteAccessIsCurrent(storage,now),false);
+});
 
 test('existing template-only movements become shared without changing past weights', () => {
  const old=emptyFitness();

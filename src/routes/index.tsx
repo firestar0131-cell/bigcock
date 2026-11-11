@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { AppShell } from "@/components/AppShell";
 import { MacroPie } from "@/components/MacroPie";
@@ -20,6 +20,9 @@ import {
 } from "@/lib/nutrition";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: () => {
+    throw redirect({ to: "/fitness" });
+  },
   head: () => ({
     meta: [
       { title: "燃數 BURNLOG — AI 飲食與體態紀錄" },

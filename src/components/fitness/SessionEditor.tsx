@@ -280,7 +280,7 @@ export function SessionEditor({
       {error && (
         <p
           role="alert"
-          className="sticky bottom-24 rounded-xl bg-paper p-3 text-sm text-destructive shadow-lg"
+          className="sticky bottom-4 rounded-xl bg-paper p-3 text-sm text-destructive shadow-lg"
         >
           {error}
         </p>

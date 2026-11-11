@@ -1,12 +1,60 @@
-import { useState } from "react";
-import { SITE_ACCESS_PASSWORD, SITE_ACCESS_STORAGE_KEY } from "@/lib/site-access";
+import { useEffect, useState } from "react";
+import {
+  SITE_ACCESS_PASSWORD,
+  SITE_ACCESS_STORAGE_KEY,
+  SITE_IDLE_TIMEOUT_MS,
+  SITE_LAST_ACTIVITY_KEY,
+  siteAccessIsCurrent,
+} from "@/lib/site-access";
 
 export function SiteGate({ children }: { children: React.ReactNode }) {
   const [unlocked, setUnlocked] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem(SITE_ACCESS_STORAGE_KEY) === "1",
+    () => typeof window !== "undefined" && siteAccessIsCurrent(localStorage),
   );
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!unlocked) return;
+    const lock = () => {
+      localStorage.removeItem(SITE_ACCESS_STORAGE_KEY);
+      localStorage.removeItem(SITE_LAST_ACTIVITY_KEY);
+      setUnlocked(false);
+      setPassword("");
+    };
+    const check = () => {
+      if (!siteAccessIsCurrent(localStorage)) lock();
+    };
+    const activity = () => {
+      if (!siteAccessIsCurrent(localStorage)) {
+        lock();
+        return;
+      }
+      localStorage.setItem(SITE_LAST_ACTIVITY_KEY, String(Date.now()));
+    };
+    const onVisibility = () => {
+      if (!document.hidden) check();
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === SITE_ACCESS_STORAGE_KEY || event.key === SITE_LAST_ACTIVITY_KEY) check();
+    };
+    check();
+    const timer = window.setInterval(check, Math.min(SITE_IDLE_TIMEOUT_MS, 5000));
+    window.addEventListener("pointerdown", activity);
+    window.addEventListener("keydown", activity);
+    window.addEventListener("scroll", activity, { passive: true });
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("pointerdown", activity);
+      window.removeEventListener("keydown", activity);
+      window.removeEventListener("scroll", activity);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, [unlocked]);
+
   if (unlocked) {
     return (
       <>
@@ -15,6 +63,7 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
           className="fixed right-3 top-3 z-30 rounded-full bg-ink px-3 py-2 text-xs font-bold text-paper shadow"
           onClick={() => {
             localStorage.removeItem(SITE_ACCESS_STORAGE_KEY);
+            localStorage.removeItem(SITE_LAST_ACTIVITY_KEY);
             setUnlocked(false);
             setPassword("");
           }}
@@ -32,6 +81,7 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
           event.preventDefault();
           if (password === SITE_ACCESS_PASSWORD) {
             localStorage.setItem(SITE_ACCESS_STORAGE_KEY, "1");
+            localStorage.setItem(SITE_LAST_ACTIVITY_KEY, String(Date.now()));
             setUnlocked(true);
             setError("");
           } else {
@@ -56,9 +106,12 @@ export function SiteGate({ children }: { children: React.ReactNode }) {
         <button className="w-full rounded-xl bg-ink px-4 py-3 font-bold text-paper" type="submit">
           Enter
         </button>
-        {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
       </form>
     </main>
   );
 }
-
